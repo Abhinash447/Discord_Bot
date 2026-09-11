@@ -1,23 +1,38 @@
 require('dotenv').config();
-const { Client, GatewayIntentBits } = require('discord.js');
 
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-  ]
-});
+const express = require('express');
+const URL = require('./model/url');
+const { connectToMongoDB } = require('./connect'); 
 
-client.on('messageCreate', (message) => {
-    if (message.author.bot) return;
-    message.reply({
-      content: "Hii from bot"
-  })
-});
+const app = express();
+const PORT = process.env.PORT || 8090;
 
-client.on('interactionCreate', interaction => {
-    console.log(interaction);
+app.get("/:shortId", async (req, res) => {
+    try {
+        const url = await URL.findOne({
+            shortId: req.params.shortId,
+        });
+
+        if (!url) {
+            return res.status(404).send("Short URL not found");
+        }
+
+        res.redirect(url.originalUrl);
+    } catch (error) {
+        res.status(500).send("Server Error");
+    }
 })
 
-client.login(process.env.DISCORD_TOKEN);
+connectToMongoDB(process.env.mongo_URI)
+    .then(() => {
+        console.log("MongoDb Connected!");
+        app.listen(PORT, () => {
+            console.log(`Server is running on port ${PORT}`);
+        });
+    })
+    .catch((err) => {
+        console.log("MongoDb connections failed:", err);
+    });
+
+
+
